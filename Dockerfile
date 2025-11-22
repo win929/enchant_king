@@ -51,11 +51,11 @@ COPY priv priv
 # you will want to copy over the assets folder as well
 COPY assets assets
 
-# compile assets
-RUN mix assets.deploy
-
 # Compile the release
 COPY lib lib
+
+# compile assets
+RUN mix assets.deploy
 
 # changes to config/runtime.exs don't require recompiling the code
 COPY config/runtime.exs config/
