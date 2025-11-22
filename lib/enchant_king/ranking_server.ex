@@ -47,17 +47,22 @@ defmodule EnchantKing.RankingServer do
 
   # --- [파일 저장소 헬퍼] ---
 
+  # --- [파일 저장소 헬퍼] ---
+
   defp file_path do
-  # 로컬에선 현재 폴더, 배포(prod)에선 볼륨(/data) 사용
-  if Mix.env() == :prod, do: "/data/ranking.data", else: "ranking.data"
+    if Mix.env() == :prod, do: "/data/ranking.data", else: "ranking.data"
   end
 
   defp save_to_disk(ranking) do
-    binary = :erlang.term_to_binary(ranking)
-    File.write(file_path(), binary)
+    try do
+      binary = :erlang.term_to_binary(ranking)
+      File.write(file_path(), binary)
+    rescue
+      e -> IO.puts("⚠️ 파일 저장 실패: #{inspect(e)}")
+    end
   end
 
-  # 🔥 핵심: 파일이 없거나 깨져도 서버가 죽지 않도록 보호
+  # 🔥 [수정] 깨진 파일 발견 시 삭제 후 초기화
   defp load_from_disk do
     path = file_path()
     case File.read(path) do
@@ -66,7 +71,8 @@ defmodule EnchantKing.RankingServer do
           :erlang.binary_to_term(binary)
         rescue
           _ ->
-            IO.puts("⚠️ 랭킹 파일이 손상되어 초기화합니다.")
+            IO.puts("⚠️ 랭킹 파일 손상됨! 삭제하고 초기화합니다.")
+            File.rm(path) # 깨진 파일 삭제 (중요!)
             []
         end
       _ ->
