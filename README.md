@@ -1,5 +1,7 @@
 # ⚔️ Enchant King: Star Force Simulator
 
+## https://enchant-king.fly.dev/game
+
 **"200만 메소로 시작하는 야생의 강화 시뮬레이터"**
 
 Elixir와 Phoenix LiveView로 제작된 초고속 실시간 강화 시뮬레이션 게임입니다.
