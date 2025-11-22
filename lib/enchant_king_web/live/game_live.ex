@@ -166,7 +166,14 @@ defmodule EnchantKingWeb.GameLive do
   def handle_info({:update_ranking, r}, socket), do: {:noreply, assign(socket, ranking: r)}
 
   defp format_number(i) when is_integer(i) do
-    i |> Integer.to_charlist() |> Enum.reverse() |> Enum.chunk_every(3) |> Enum.intersperse(',') |> List.flatten() |> Enum.reverse() |> List.to_string()
+    i
+    |> Integer.to_charlist()
+    |> Enum.reverse()
+    |> Enum.chunk_every(3)
+    |> Enum.intersperse(~c",")
+    |> List.flatten()
+    |> Enum.reverse()
+    |> List.to_string()
   end
   defp format_number(other), do: other
 
