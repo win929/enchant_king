@@ -98,7 +98,7 @@ defmodule EnchantKingWeb.GameLive do
         # 성공
         roll <= success_rate ->
           new_stars = stars + 1
-          if new_stars >= 15 do
+          if new_stars >= 10 do
             broadcast_msg(socket.assigns.nickname, new_stars, :success)
             RankingServer.add_score(socket.assigns.nickname, new_stars)
           end
