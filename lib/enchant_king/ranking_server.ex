@@ -59,8 +59,13 @@ defmodule EnchantKing.RankingServer do
 
   defp load_from_disk do
     case File.read(file_path()) do
-      {:ok, binary} -> :erlang.binary_to_term(binary)
-      _ -> []
+      {:ok, binary} ->
+        try do
+          :erlang.binary_to_term(binary)
+        rescue
+          _ -> [] # 데이터가 깨졌으면 그냥 빈 리스트로 초기화 (서버 안 죽음!)
+        end
+      _ -> [] # 파일이 없으면 빈 리스트
     end
   end
 end
