@@ -57,15 +57,20 @@ defmodule EnchantKing.RankingServer do
     File.write(file_path(), binary)
   end
 
+  # 🔥 핵심: 파일이 없거나 깨져도 서버가 죽지 않도록 보호
   defp load_from_disk do
-    case File.read(file_path()) do
+    path = file_path()
+    case File.read(path) do
       {:ok, binary} ->
         try do
           :erlang.binary_to_term(binary)
         rescue
-          _ -> [] # 데이터가 깨졌으면 그냥 빈 리스트로 초기화 (서버 안 죽음!)
+          _ ->
+            IO.puts("⚠️ 랭킹 파일이 손상되어 초기화합니다.")
+            []
         end
-      _ -> [] # 파일이 없으면 빈 리스트
+      _ ->
+        []
     end
   end
 end
