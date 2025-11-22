@@ -23,7 +23,7 @@ defmodule EnchantKingWeb.GameLive do
        scrolls: 0,
        use_potion: false,
        use_scroll: false,
-       message: "스타포스 강화를 시작합니다.",
+       message: "강화를 시작합니다.",
        status: :idle,
        feed: [],
        ranking: current_ranking,
@@ -63,12 +63,11 @@ defmodule EnchantKingWeb.GameLive do
     end
   end
 
-  # 🔥 [수정] 강화 로직 (안전 구간 삭제)
+  # 🔥 [수정] 강화 로직
   def handle_event("enchant", _value, socket) do
     stars = socket.assigns.stars
     gold = socket.assigns.gold
 
-    # 아이템 적용 여부 (주문서 레벨 제한 삭제)
     has_potion = socket.assigns.use_potion and socket.assigns.potions > 0
     has_scroll = socket.assigns.use_scroll and socket.assigns.scrolls > 0
 
@@ -105,18 +104,15 @@ defmodule EnchantKingWeb.GameLive do
           end
           {:noreply, assign(socket, stars: new_stars, message: "SUCCESS!!", status: :success)}
 
-        # 파괴 (주문서 없으면 무조건 여기 걸림)
+        # 파괴 (주문서 미적용 시)
         roll > (100 - destroy_rate) ->
-          # 10성 이상에서 터지면 방송 (너무 자주 뜨는 것 방지)
           if stars >= 10, do: broadcast_msg(socket.assigns.nickname, stars, :destroy)
+          {:noreply, assign(socket, stars: 0, message: "DESTROYED...", status: :destroy)}
 
-          {:noreply, assign(socket, stars: 0, message: "DESTROYED... (0성 초기화)", status: :destroy)}
-
-        # 실패 (주문서로 파괴를 막았을 때만 도달)
+        # 실패 (주문서 방어 시)
         true ->
-          # 주문서가 있으면 0성으로 안 가고 -1강만 됨
-          new_stars = if stars > 0, do: stars - 1, else: 0
-          {:noreply, assign(socket, stars: new_stars, message: "🛡️ 수호의 주문서 발동! (파괴 방어)", status: :fail)}
+          # 🔥 [수정] 등급 하락 없이 그대로 유지
+          {:noreply, assign(socket, stars: stars, message: "🛡️ 수호의 주문서 발동! (등급 유지)", status: :fail)}
       end
     end
   end
@@ -141,14 +137,11 @@ defmodule EnchantKingWeb.GameLive do
   defp calculate_stats(stars, has_potion, has_scroll) do
     base_cost = 1000 * :math.pow(stars + 1, 2.8) |> round()
 
-    # 성공 확률
     base_success = Enum.max([95 - (stars * 6), 5])
     base_success = if stars >= 22, do: 1.0, else: base_success
     success_rate = if has_potion, do: base_success + 10.0, else: base_success
     success_rate = Enum.min([success_rate, 100.0])
 
-    # 파괴 확률: 실패하면 무조건 파괴 (100 - 성공)
-    # 단, 주문서가 있으면 파괴 확률 0%
     destroy_rate = 100.0 - success_rate
     destroy_rate = if has_scroll, do: 0.0, else: destroy_rate
 
@@ -271,7 +264,7 @@ defmodule EnchantKingWeb.GameLive do
                       <span class="text-xs text-yellow-400 font-mono">보유: <%= @scrolls %></span>
                     </div>
                     <div class="flex justify-between w-full text-xs text-gray-400">
-                      <span>파괴 방지 (실패 시 -1강)</span>
+                      <span>파괴 방지 (실패 시 유지)</span>
                       <span>(-500,000 메소)</span>
                     </div>
                   </div>
