@@ -16,7 +16,7 @@ defmodule EnchantKing.RankingServer do
 
   # --- [내부 로직] ---
 
-  # 초기화: 파일에서 데이터를 불러옴
+  # 초기화
   def init(_) do
     initial_ranking = load_from_disk()
     {:ok, initial_ranking}
@@ -25,14 +25,12 @@ defmodule EnchantKing.RankingServer do
   def handle_cast({:add_score, nickname, level}, state) do
     new_entry = %{name: nickname, level: level, time: DateTime.utc_now()}
 
-    # 랭킹 갱신 로직
     new_ranking =
       [new_entry | state]
       |> Enum.sort_by(&{-&1.level, &1.time})
-      |> Enum.uniq_by(& &1.name) # 한 사람은 최고 기록 하나만
-      |> Enum.take(10) # 10등까지만 저장
+      |> Enum.uniq_by(& &1.name)
+      |> Enum.take(10)
 
-    # 변경되었으면 파일에 저장하고 방송
     if new_ranking != state do
       save_to_disk(new_ranking)
       Phoenix.PubSub.broadcast(EnchantKing.PubSub, "ranking_feed", {:update_ranking, new_ranking})
@@ -47,10 +45,14 @@ defmodule EnchantKing.RankingServer do
 
   # --- [파일 저장소 헬퍼] ---
 
-  # --- [파일 저장소 헬퍼] ---
-
+  # 🔥 [수정] Mix.env() 대신 Code.ensure_loaded? 사용 (서버 다운 방지)
+  # 🔥 [수정] 저장 경로를 볼륨(/data)으로 변경
   defp file_path do
-    if Mix.env() == :prod, do: "/data/ranking.data", else: "ranking.data"
+    if Code.ensure_loaded?(Mix) do
+      "ranking.data"       # 로컬
+    else
+      "/data/ranking.data" # 배포 (볼륨)
+    end
   end
 
   defp save_to_disk(ranking) do
@@ -62,7 +64,6 @@ defmodule EnchantKing.RankingServer do
     end
   end
 
-  # 🔥 [수정] 깨진 파일 발견 시 삭제 후 초기화
   defp load_from_disk do
     path = file_path()
     case File.read(path) do
@@ -71,12 +72,11 @@ defmodule EnchantKing.RankingServer do
           :erlang.binary_to_term(binary)
         rescue
           _ ->
-            IO.puts("⚠️ 랭킹 파일 손상됨! 삭제하고 초기화합니다.")
-            File.rm(path) # 깨진 파일 삭제 (중요!)
+            IO.puts("⚠️ 랭킹 파일 손상됨. 초기화합니다.")
+            File.rm(path)
             []
         end
-      _ ->
-        []
+      _ -> []
     end
   end
 end
