@@ -14,7 +14,8 @@ defmodule EnchantKing.Application do
       # Start a worker by calling: EnchantKing.Worker.start_link(arg)
       # {EnchantKing.Worker, arg},
       # Start to serve requests, typically the last entry
-      EnchantKingWeb.Endpoint
+      EnchantKingWeb.Endpoint,
+      EnchantKing.RankingServer
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
