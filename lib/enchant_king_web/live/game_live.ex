@@ -23,13 +23,16 @@ defmodule EnchantKingWeb.GameLive do
        scrolls: 0,
        use_potion: false,
        use_scroll: false,
-       message: "강화를 시작합니다.",
+
+       message: "스타포스 강화를 시작합니다.",
        status: :idle,
+
        feed: [],
        ranking: current_ranking,
        nickname: nil,
        star_catch: false,
-       max_stars: @max_stars
+       max_stars: @max_stars,
+       clear_ref: nil # 🔥 [추가] 메시지 삭제 타이머 저장용
      )}
   end
 
@@ -45,25 +48,30 @@ defmodule EnchantKingWeb.GameLive do
     end
   end
 
+  # 🔥 [수정] 아이템 구매 (자동 삭제 적용)
   def handle_event("buy", %{"item" => item}, socket) do
     gold = socket.assigns.gold
+
+    # 메시지 자동 삭제 예약
+    socket = schedule_clear_status(socket)
+
     case item do
       "potion" ->
         if gold >= @price_potion do
-          {:noreply, assign(socket, gold: gold - @price_potion, potions: socket.assigns.potions + 1, message: "🧪 비약 구매 완료!")}
+          {:noreply, assign(socket, gold: gold - @price_potion, potions: socket.assigns.potions + 1, message: "🧪 비약 구매 완료!", status: :success)}
         else
           {:noreply, assign(socket, message: "메소가 부족합니다!", status: :fail)}
         end
       "scroll" ->
         if gold >= @price_scroll do
-          {:noreply, assign(socket, gold: gold - @price_scroll, scrolls: socket.assigns.scrolls + 1, message: "🛡️ 주문서 구매 완료!")}
+          {:noreply, assign(socket, gold: gold - @price_scroll, scrolls: socket.assigns.scrolls + 1, message: "🛡️ 주문서 구매 완료!", status: :success)}
         else
           {:noreply, assign(socket, message: "메소가 부족합니다!", status: :fail)}
         end
     end
   end
 
-  # 🔥 [수정] 강화 로직
+  # 🔥 [수정] 강화 로직 (자동 삭제 적용)
   def handle_event("enchant", _value, socket) do
     stars = socket.assigns.stars
     gold = socket.assigns.gold
@@ -73,23 +81,17 @@ defmodule EnchantKingWeb.GameLive do
 
     {cost, success_rate, destroy_rate} = calculate_stats(stars, has_potion, has_scroll)
 
+    # 메시지 자동 삭제 예약
+    socket = schedule_clear_status(socket)
+
     if gold < cost do
+      send(self(), {:new_feed, "❌ 강화 비용이 부족합니다!"})
       {:noreply, assign(socket, message: "강화 비용이 부족합니다!", status: :fail)}
     else
       # 1. 비용 및 아이템 소모
       socket = assign(socket, gold: gold - cost)
-
-      socket = if has_potion do
-        assign(socket, potions: socket.assigns.potions - 1)
-      else
-        socket
-      end
-
-      socket = if has_scroll do
-        assign(socket, scrolls: socket.assigns.scrolls - 1)
-      else
-        socket
-      end
+      socket = if has_potion, do: assign(socket, potions: socket.assigns.potions - 1), else: socket
+      socket = if has_scroll, do: assign(socket, scrolls: socket.assigns.scrolls - 1), else: socket
 
       # 2. 결과 판정
       roll = :rand.uniform() * 100
@@ -104,21 +106,25 @@ defmodule EnchantKingWeb.GameLive do
           end
           {:noreply, assign(socket, stars: new_stars, message: "SUCCESS!!", status: :success)}
 
-        # 파괴 (주문서 미적용 시)
+        # 파괴
         roll > (100 - destroy_rate) ->
           if stars >= 10, do: broadcast_msg(socket.assigns.nickname, stars, :destroy)
           {:noreply, assign(socket, stars: 0, message: "DESTROYED...", status: :destroy)}
 
-        # 실패 (주문서 방어 시)
+        # 실패
         true ->
-          # 🔥 [수정] 등급 하락 없이 그대로 유지
           {:noreply, assign(socket, stars: stars, message: "🛡️ 수호의 주문서 발동! (등급 유지)", status: :fail)}
       end
     end
   end
 
+  # 🔥 [수정] 판매 기능 (자동 삭제 적용)
   def handle_event("sell", _value, socket) do
     stars = socket.assigns.stars
+
+    # 메시지 자동 삭제 예약
+    socket = schedule_clear_status(socket)
+
     if stars == 0 do
       {:noreply, assign(socket, message: "0성은 팔 수 없습니다.", status: :fail)}
     else
@@ -133,6 +139,16 @@ defmodule EnchantKingWeb.GameLive do
   end
 
   # --- 헬퍼 함수 ---
+
+  # 🔥 [추가] 메인 메시지 초기화 예약 (2초 뒤)
+  defp schedule_clear_status(socket) do
+    # 기존 타이머가 있다면 취소 (연타 시 메시지 깜빡임 방지)
+    if socket.assigns[:clear_ref], do: Process.cancel_timer(socket.assigns.clear_ref)
+
+    # 2초 뒤에 :clear_status 메시지 발송
+    timer_ref = Process.send_after(self(), :clear_status, 2000)
+    assign(socket, clear_ref: timer_ref)
+  end
 
   defp calculate_stats(stars, has_potion, has_scroll) do
     base_cost = 1000 * :math.pow(stars + 1, 2.8) |> round()
@@ -157,23 +173,19 @@ defmodule EnchantKingWeb.GameLive do
   end
 
   def handle_info({:new_feed, text}, socket) do
-    id = System.unique_integer(); Process.send_after(self(), {:remove_feed, id}, 3000)
+    id = System.unique_integer()
+    Process.send_after(self(), {:remove_feed, id}, 2000)
     {:noreply, assign(socket, feed: [%{id: id, text: text} | socket.assigns.feed])}
   end
   def handle_info({:remove_feed, id}, socket) do
     {:noreply, assign(socket, feed: Enum.reject(socket.assigns.feed, &(&1.id == id)))}
   end
   def handle_info({:update_ranking, r}, socket), do: {:noreply, assign(socket, ranking: r)}
-
+  def handle_info(:clear_status, socket) do
+    {:noreply, assign(socket, status: :idle, message: "")}
+  end
   defp format_number(i) when is_integer(i) do
-    i
-    |> Integer.to_charlist()
-    |> Enum.reverse()
-    |> Enum.chunk_every(3)
-    |> Enum.intersperse(~c",")
-    |> List.flatten()
-    |> Enum.reverse()
-    |> List.to_string()
+    i |> Integer.to_charlist() |> Enum.reverse() |> Enum.chunk_every(3) |> Enum.intersperse(~c",") |> List.flatten() |> Enum.reverse() |> List.to_string()
   end
   defp format_number(other), do: other
 
@@ -231,6 +243,7 @@ defmodule EnchantKingWeb.GameLive do
                   <span class="text-yellow-500">★</span> <%= @stars %>성
                 </div>
                 <p class="text-gray-500 text-sm mt-1"><%= @nickname %>의 검</p>
+
                 <%= if @status != :idle do %>
                   <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap animate-bounce z-20">
                     <span class={"text-3xl font-black stroke-black stroke-2 shadow-xl #{msg_color(@status)}"}>
