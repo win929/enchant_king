@@ -48,8 +48,8 @@ defmodule EnchantKing.RankingServer do
   # --- [파일 저장소 헬퍼] ---
 
   defp file_path do
-    # 배포 환경에서는 /tmp 폴더에 저장 (쓰기 권한 보장됨)
-    if Mix.env() == :prod, do: "/tmp/ranking.data", else: "ranking.data"
+  # 로컬에선 현재 폴더, 배포(prod)에선 볼륨(/data) 사용
+  if Mix.env() == :prod, do: "/data/ranking.data", else: "ranking.data"
   end
 
   defp save_to_disk(ranking) do

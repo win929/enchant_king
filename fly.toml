@@ -22,3 +22,7 @@ primary_region = "sin"
   memory = "1gb"
   cpu_kind = "shared"
   cpus = 1
+
+[mounts]
+  source = "enchant_data"
+  destination = "/data"
