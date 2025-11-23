@@ -41,7 +41,8 @@ Elixir와 Phoenix LiveView로 제작된 초고속 실시간 강화 시뮬레이�
 * **Framework:** Phoenix Framework, Phoenix LiveView
 * **Frontend:** Tailwind CSS, daisyUI
 * **Real-time:** Phoenix PubSub
-* **State Management:** GenServer (In-memory Ranking System)
+* **Persistence:** Fly.io Volume (Disk-based Ranking System)
+* **State Management:** GenServer (with File Persistence)
 
 ---
 
