@@ -1,5 +1,7 @@
 # ⚔️ Enchant King: Star Force Simulator
 
+<img width="1920" height="1080" alt="Image" src="https://github.com/user-attachments/assets/3b65e5f6-e6fb-4ee3-a9f3-61dcf3cf79be" />
+
 ## https://enchant-king.fly.dev/game
 
 **"200만 메소로 시작하는 야생의 강화 시뮬레이터"**
